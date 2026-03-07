@@ -1,6 +1,6 @@
 # 贡献指南
 
-欢迎贡献 KT8900Copilot 项目！
+欢迎贡献 KT8900Copilot-Python 项目！
 
 ## 如何贡献
 
@@ -25,8 +25,8 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/your-username/kt8900copilot.git
-cd kt8900copilot/KT8900Copilot-Python/server
+git clone https://github.com/amnssb/KT8900Copilot-Python.git
+cd KT8900Copilot-Python/server
 
 # 创建虚拟环境
 python3 -m venv venv

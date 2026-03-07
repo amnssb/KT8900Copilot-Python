@@ -1,5 +1,5 @@
 [Unit]
-Description=KT8900 Copilot Service
+Description=KT8900 Copilot API Service
 After=network.target
 Wants=network.target
 
@@ -7,10 +7,9 @@ Wants=network.target
 Type=simple
 User=root
 WorkingDirectory=/opt/kt8900copilot/server
-ExecStart=/usr/bin/python3 /opt/kt8900copilot/server/main.py
+ExecStart=/usr/bin/python3 /opt/kt8900copilot/server/api_server.py
 Restart=always
 RestartSec=10
-
 Environment="PYTHONUNBUFFERED=1"
 StandardOutput=journal
 StandardError=journal

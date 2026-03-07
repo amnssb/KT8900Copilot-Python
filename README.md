@@ -1,6 +1,6 @@
 # KT8900Copilot-Python
 
-基于 KT8900 远程控制场景的 Python 实现版本，面向玩客云/NAT 环境，支持：
+基于玩客云 Armbian 系统（ARM 32 位）设计的 KT8900 远程控制项目，支持：
 
 - 低延迟语音通联（浏览器直连后端 WSS）
 - PTT/COR 控制
@@ -15,6 +15,14 @@
 - 当前仓库：`https://github.com/amnssb/KT8900Copilot-Python`
 - 原客户端项目：`https://github.com/odorajbotoj/kt8900copilot`
 - 原服务端项目：`https://github.com/odorajbotoj/kt8900copilot-server`
+
+## 文档导航
+
+- 项目总览与快速开始：`README.md`
+- 中国大陆部署与证书/穿透：`docs/deployment-cn.md`
+- 贡献规范：`CONTRIBUTING.md`
+- 安装脚本：`scripts/install.sh`
+- 配置初始化脚本：`scripts/bootstrap_config.py`
 
 ---
 
@@ -110,24 +118,44 @@ sudo bash scripts/install.sh
 
 ---
 
-## 运行服务
+## 运行服务（推荐 systemd 托管）
 
-建议开两个进程：
+安装脚本会自动完成：
+
+- 安装服务文件到 `/etc/systemd/system/`
+- 设置开机自启
+- 启动主服务与 API 服务
+
+服务名称：
+
+- `kt8900copilot.service`（语音/WS 主服务）
+- `kt8900copilot-api.service`（管理 API）
+
+常用命令：
 
 ```bash
-# 1) 语音/WS 主服务
-cd server
-python3 main.py
+sudo systemctl status kt8900copilot --no-pager
+sudo systemctl status kt8900copilot-api --no-pager
 
-# 2) 管理 API（另一个终端）
-cd server
-python3 api_server.py
+sudo systemctl restart kt8900copilot
+sudo systemctl restart kt8900copilot-api
+
+sudo journalctl -u kt8900copilot -f
+sudo journalctl -u kt8900copilot-api -f
 ```
 
-默认端口：
+默认监听端口：
 
 - WS：`8765`
 - API：`8080`
+
+仅调试时可手动运行：
+
+```bash
+cd server
+python3 main.py
+python3 api_server.py
+```
 
 ---
 
@@ -196,7 +224,7 @@ PASSKEY=user01-password
 后端在 `ptt_status` 广播中附带身份信息：
 
 ```json
-{"type":"ptt_status","active":true,"from":"BG4QBF","from_id":"user01","from_type":2}
+{"type":"ptt_status","active":true,"from":"BA4SLT","from_id":"user01","from_type":2}
 ```
 
 前端会显示：
@@ -219,6 +247,56 @@ PASSKEY=user01-password
 - `aprs`：APRS 参数
 - `api.host/port`：管理 API 监听
 - `radio.name`：电台站点名称（安装时可配置）
+
+---
+
+## ESP32-C3 刷写 MicroPython（简版）
+
+推荐使用稳定版 MicroPython 固件，并将 `esp32_c3/main.py` 上传到板子。
+
+### 方式 A：Thonny（推荐）
+
+1. 安装 Thonny，连接 ESP32-C3。
+2. 选择解释器：`MicroPython (ESP32)`。
+3. 工具菜单中烧录固件（选择 `.bin`）。
+4. 将仓库里的 `esp32_c3/main.py` 上传到开发板根目录。
+5. 重启板子，观察串口日志。
+
+### 方式 B：命令行（esptool）
+
+```bash
+pip install esptool
+esptool.py --chip esp32c3 --port /dev/ttyUSB0 erase_flash
+esptool.py --chip esp32c3 --port /dev/ttyUSB0 --baud 460800 write_flash -z 0x0 firmware.bin
+```
+
+刷写后用 `mpremote` 或 Thonny 上传 `esp32_c3/main.py`。
+
+---
+
+## 内网穿透与证书建议
+
+项目既可用于 NAT 穿透环境，也可用于有公网 IP 的场景。推荐统一使用 TLS 证书，保证浏览器可用 `https/wss`。
+
+### 推荐做法
+
+- 语音域名：`radio.your-domain.com`（WSS）
+- 管理域名：`admin.your-domain.com`（HTTPS）
+- 证书部署在公网入口（Nginx/Caddy），后端保持内网端口。
+
+### NAT/穿透常见做法
+
+- 使用高位端口映射（如 `24443` / `28080`）。
+- 使用 DNS-01 方式签发证书（不依赖 80/443 入站）。
+- 浏览器访问示例：
+  - `wss://radio.your-domain.com:24443`
+  - `https://admin.your-domain.com:28080`
+
+### 证书排错
+
+- 证书域名必须与访问域名一致。
+- 若浏览器提示证书错误，先检查证书链是否完整。
+- 若 WSS 握手失败，检查反向代理是否保留 `Upgrade` 头。
 
 ---
 
@@ -258,6 +336,12 @@ python3 scripts/ktctl.py client add user02 -n "User 02" -t 2 --no-tx
 
 - 语音 WSS 直连后端（低延迟）
 - 管理 API 走 Worker（统一入口）
+
+---
+
+## 贡献
+
+贡献流程请见：`CONTRIBUTING.md`
 
 ---
 

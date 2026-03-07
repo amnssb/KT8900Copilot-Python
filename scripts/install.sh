@@ -157,6 +157,22 @@ if [ -f /etc/asound.conf ]; then
     cp /etc/asound.conf /etc/asound.conf.backup
 fi
 
+# 安装并启用 systemd 服务
+echo ""
+echo "安装 systemd 服务..."
+if [ -f "$PROJECT_ROOT/scripts/kt8900copilot.service" ]; then
+    cp "$PROJECT_ROOT/scripts/kt8900copilot.service" /etc/systemd/system/kt8900copilot.service
+fi
+if [ -f "$PROJECT_ROOT/scripts/kt8900copilot-api.service" ]; then
+    cp "$PROJECT_ROOT/scripts/kt8900copilot-api.service" /etc/systemd/system/kt8900copilot-api.service
+fi
+
+systemctl daemon-reload
+systemctl enable kt8900copilot.service
+systemctl enable kt8900copilot-api.service
+systemctl restart kt8900copilot.service
+systemctl restart kt8900copilot-api.service
+
 echo ""
 echo "====================================="
 echo "安装完成！"
@@ -169,5 +185,7 @@ echo "3. 测试播放: aplay test.wav"
 echo "4. 检查 Direwolf: direwolf -h"
 echo "5. 项目目录: $PROJECT_ROOT"
 echo "6. 检查默认配置: $WORK_DIR/server/config.json"
-echo "7. 进入服务目录并运行: python3 main.py"
+echo "7. 服务状态: systemctl status kt8900copilot --no-pager"
+echo "8. API状态: systemctl status kt8900copilot-api --no-pager"
+echo "9. 查看日志: journalctl -u kt8900copilot -f"
 echo ""
