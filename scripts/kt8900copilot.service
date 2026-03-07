@@ -1,0 +1,19 @@
+[Unit]
+Description=KT8900 Copilot Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/kt8900copilot/server
+ExecStart=/usr/bin/python3 main.py
+Restart=always
+RestartSec=10
+
+Environment="PYTHONUNBUFFERED=1"
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

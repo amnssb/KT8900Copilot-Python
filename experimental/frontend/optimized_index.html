@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KT8900 Copilot - 低延迟版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            color: #fff;
+        }
+        .container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+        }
+        h1 { text-align: center; margin-bottom: 30px; font-size: 2em; }
+        .status-bar {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        .status-item { text-align: center; }
+        .status-label { font-size: 12px; color: #888; }
+        .status-value { font-size: 24px; font-weight: bold; color: #4CAF50; }
+        .status-value.warning { color: #ff9800; }
+        .status-value.error { color: #f44336; }
+        .ptt-button {
+            width: 100%;
+            padding: 80px;
+            font-size: 48px;
+            font-weight: bold;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            margin-bottom: 20px;
+        }
+        .ptt-button:hover { transform: scale(1.02); }
+        .ptt-button:active, .ptt-button.active {
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            transform: scale(0.98);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .stat-item { text-align: center; }
+        .stat-label { color: #888; }
+        .stat-value { color: #4CAF50; font-weight: bold; }
+        .connection-status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .connection-status.connected { background: #27ae60; }
+        .connection-status.disconnected { background: #e74c3c; }
+        .connection-status.connecting { background: #f39c12; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KT8900 Copilot</h1>
+        
+        <div class="connection-status connecting" id="connStatus">连接中...</div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-label">PTT</div>
+                <div class="status-value" id="pttStatus">OFF</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">COR</div>
+                <div class="status-value" id="corStatus">--</div>
+            </div>
+            <div class="status-item">
+                <div class="status-label">延迟</div>
+                <div class="status-value" id="latencyStatus">--</div>
+            </div>
+        </div>
+        
+        <button class="ptt-button" id="pttBtn">发射</button>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-label">音频输入</div>
+                <div class="stat-value" id="audioIn">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">音频输出</div>
+                <div class="stat-value" id="audioOut">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">缓冲欠载</div>
+                <div class="stat-value" id="underruns">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">采样率</div>
+                <div class="stat-value" id="sampleRate">16k</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">缓冲深度</div>
+                <div class="stat-value" id="bufferDepth">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">丢帧</div>
+                <div class="stat-value" id="dropped">0</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="low_latency_audio.js"></script>
+    <script>
+        const CONFIG = {
+            clientId: 'kt8900copilot',
+            passkey: 'your-secret-passkey',
+            sampleRate: 16000
+        };
+
+        let ws = null;
+        let audioProcessor = null;
+        let isTransmitting = false;
+        let isVerified = false;
+        let stats = { audioIn: 0, audioOut: 0, underruns: 0, dropped: 0 };
+
+        const elements = {
+            connStatus: document.getElementById('connStatus'),
+            pttStatus: document.getElementById('pttStatus'),
+            corStatus: document.getElementById('corStatus'),
+            latencyStatus: document.getElementById('latencyStatus'),
+            pttBtn: document.getElementById('pttBtn'),
+            audioIn: document.getElementById('audioIn'),
+            audioOut: document.getElementById('audioOut'),
+            underruns: document.getElementById('underruns'),
+            sampleRate: document.getElementById('sampleRate'),
+            bufferDepth: document.getElementById('bufferDepth'),
+            dropped: document.getElementById('dropped')
+        };
+
+        async function init() {
+            audioProcessor = new LowLatencyAudioProcessor(CONFIG.sampleRate);
+            await audioProcessor.init();
+            
+            elements.sampleRate.textContent = (CONFIG.sampleRate / 1000) + 'k';
+            elements.latencyStatus.textContent = audioProcessor.getLatency().toFixed(1) + 'ms';
+            
+            connect();
+        }
+
+        async function md5(str) {
+            const data = new TextEncoder().encode(str);
+            const hash = await crypto.subtle.digest('SHA-256', data);
+            return new Uint8Array(hash).slice(0, 16);
+        }
+
+        async function verify() {
+            ws.send(new TextEncoder().encode(CONFIG.clientId));
+            
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => reject(new Error('验证超时')), 20000);
+                
+                ws.onmessage = async (event) => {
+                    const data = new Uint8Array(event.data);
+                    if (data[0] === 0x01) {
+                        const verifyHex = Array.from(data.slice(1)).map(b => b.toString(16).padStart(2, '0')).join('');
+                        const hashData = CONFIG.clientId + verifyHex + CONFIG.passkey;
+                        const response = await md5(hashData);
+                        ws.send(response);
+                    } else if (data[0] === 0x1D) {
+                        clearTimeout(timeout);
+                        isVerified = true;
+                        resolve();
+                    } else if (data[0] === 0x02 || data[0] === 0x03) {
+                        clearTimeout(timeout);
+                        reject(new Error('验证失败'));
+                    }
+                };
+            });
+        }
+
+        async function connect() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/`);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = async () => {
+                updateStatus('connecting');
+                try {
+                    await verify();
+                    updateStatus('connected');
+                    await audioProcessor.resume();
+                    ws.onmessage = handleMessage;
+                } catch (e) {
+                    console.error('验证失败:', e);
+                    updateStatus('disconnected');
+                }
+            };
+
+            ws.onclose = () => {
+                updateStatus('disconnected');
+                isVerified = false;
+                setTimeout(connect, 3000);
+            };
+
+            ws.onerror = (e) => console.error('WebSocket错误:', e);
+        }
+
+        function updateStatus(status) {
+            elements.connStatus.className = `connection-status ${status}`;
+            elements.connStatus.textContent = { connected: '已连接', disconnected: '已断开', connecting: '连接中...' }[status];
+        }
+
+        async function handleMessage(event) {
+            const data = new Uint8Array(event.data);
+            if (data.length === 0) return;
+
+            switch (data[0]) {
+                case 0x11: // RX
+                    elements.corStatus.textContent = 'RX';
+                    elements.corStatus.classList.add('warning');
+                    break;
+                case 0x12: // RX_STOP
+                    elements.corStatus.textContent = '--';
+                    elements.corStatus.classList.remove('warning');
+                    break;
+                case 0x13: // TX
+                case 0x14: // TX_STOP
+                    elements.pttStatus.textContent = data[0] === 0x13 ? 'ON' : 'OFF';
+                    elements.pttStatus.className = `status-value ${data[0] === 0x13 ? 'warning' : ''}`;
+                    break;
+                case 0x51: // PCM
+                    stats.audioIn++;
+                    audioProcessor.playAudio(data.slice(1));
+                    break;
+            }
+
+            updateStatsDisplay();
+        }
+
+        function updateStatsDisplay() {
+            elements.audioIn.textContent = stats.audioIn;
+            elements.audioOut.textContent = stats.audioOut;
+            elements.underruns.textContent = stats.underruns;
+            elements.dropped.textContent = stats.dropped;
+        }
+
+        async function startPTT() {
+            if (!isVerified || isTransmitting) return;
+            
+            isTransmitting = true;
+            elements.pttBtn.classList.add('active');
+            elements.pttBtn.textContent = '发射中';
+            
+            ws.send(JSON.stringify({ type: 'ptt_press' }));
+            
+            try {
+                await audioProcessor.startCapture((audioData) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(audioData);
+                        stats.audioOut++;
+                        updateStatsDisplay();
+                    }
+                });
+            } catch (e) {
+                console.error('启动麦克风失败:', e);
+                stopPTT();
+            }
+        }
+
+        function stopPTT() {
+            if (!isTransmitting) return;
+            
+            isTransmitting = false;
+            audioProcessor.stopCapture();
+            
+            elements.pttBtn.classList.remove('active');
+            elements.pttBtn.textContent = '发射';
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'ptt_release' }));
+            }
+        }
+
+        elements.pttBtn.addEventListener('mousedown', startPTT);
+        elements.pttBtn.addEventListener('mouseup', stopPTT);
+        elements.pttBtn.addEventListener('mouseleave', stopPTT);
+        elements.pttBtn.addEventListener('touchstart', (e) => { e.preventDefault(); startPTT(); });
+        elements.pttBtn.addEventListener('touchend', (e) => { e.preventDefault(); stopPTT(); });
+
+        setInterval(async () => {
+            if (ws && ws.readyState === WebSocket.OPEN && isVerified) {
+                ws.send(JSON.stringify({ type: 'get_stats' }));
+            }
+        }, 5000);
+
+        init();
+    </script>
+</body>
+</html>

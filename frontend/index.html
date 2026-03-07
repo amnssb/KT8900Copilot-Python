@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KT8900 Copilot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>KT8900 Copilot</h1>
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="radio">电台控制</button>
+                <button class="nav-tab" data-tab="admin">系统管理</button>
+            </div>
+        </div>
+        
+        <div class="connection-status connecting" id="connectionStatus">
+            正在连接...
+        </div>
+        
+        <div id="radioTab" class="tab-content active">
+            <div class="speaker-hero" id="speakerHero">
+                <div class="speaker-orb" id="speakerOrb"></div>
+                <div class="speaker-meta">
+                    <div class="speaker-label">当前发话人</div>
+                    <div class="speaker-name" id="activeSpeakerName">待机</div>
+                    <div class="speaker-role" id="activeSpeakerRole">空闲信道</div>
+                </div>
+                <div class="speaker-pulse" id="speakerPulse"></div>
+            </div>
+
+            <div class="control-panel">
+                <div class="status-display">
+                    <div class="status-item">
+                        <span class="status-label">PTT 状态</span>
+                        <div class="status-indicator" id="pttStatus"></div>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">接收状态</span>
+                        <div class="status-indicator" id="corStatus"></div>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">麦克风</span>
+                        <div class="status-indicator" id="micStatus"></div>
+                    </div>
+                </div>
+                
+                <button class="ptt-button" id="pttButton">PTT</button>
+            </div>
+            
+            <div class="aprs-panel">
+                <div class="aprs-header">
+                    <h2>APRS 消息</h2>
+                    <button class="btn-small" id="sendBeaconBtn">发送信标</button>
+                </div>
+                <div class="aprs-log" id="aprsLog"></div>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-item">
+                    <span class="stat-label">延迟</span>
+                    <span class="stat-value" id="latencyValue">-- ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">数据包</span>
+                    <span class="stat-value" id="packetCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">音频</span>
+                    <span class="stat-value" id="audioPresetValue">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="adminTab" class="tab-content">
+            <div class="admin-section">
+                <h2>音频设置</h2>
+                <div class="audio-presets" id="audioPresets">
+                    <button class="preset-btn" data-preset="narrowband">窄带语音<br><small>8kHz / 128kbps</small></button>
+                    <button class="preset-btn active" data-preset="wideband">宽带语音<br><small>16kHz / 256kbps</small></button>
+                    <button class="preset-btn" data-preset="hd_voice">高清语音<br><small>24kHz / 384kbps</small></button>
+                    <button class="preset-btn" data-preset="cd_quality">CD音质<br><small>44.1kHz / 706kbps</small></button>
+                </div>
+                <div class="custom-audio">
+                    <h3>自定义音频</h3>
+                    <div class="form-row">
+                        <label>采样率 (Hz)</label>
+                        <select id="customSampleRate">
+                            <option value="8000">8000</option>
+                            <option value="16000">16000</option>
+                            <option value="22050">22050</option>
+                            <option value="24000">24000</option>
+                            <option value="44100">44100</option>
+                            <option value="48000">48000</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>声道</label>
+                        <select id="customChannels">
+                            <option value="1">单声道</option>
+                            <option value="2">立体声</option>
+                        </select>
+                    </div>
+                    <button class="btn-primary" id="applyCustomAudio">应用自定义设置</button>
+                </div>
+            </div>
+            
+            <div class="admin-section">
+                <h2>网络设置</h2>
+                <div class="form-row">
+                    <label>WebSocket 主机</label>
+                    <input type="text" id="wsHost" value="0.0.0.0">
+                </div>
+                <div class="form-row">
+                    <label>WebSocket 端口</label>
+                    <input type="number" id="wsPort" value="8765">
+                </div>
+                <button class="btn-primary" id="saveNetworkSettings">保存网络设置</button>
+            </div>
+            
+            <div class="admin-section">
+                <h2>串口设置</h2>
+                <div class="form-row">
+                    <label>串口设备</label>
+                    <input type="text" id="serialPort" value="/dev/ttyUSB0">
+                </div>
+                <div class="form-row">
+                    <label>波特率</label>
+                    <select id="serialBaudrate">
+                        <option value="9600">9600</option>
+                        <option value="19200">19200</option>
+                        <option value="38400">38400</option>
+                        <option value="57600">57600</option>
+                        <option value="115200" selected>115200</option>
+                    </select>
+                </div>
+                <div class="form-row checkbox">
+                    <input type="checkbox" id="serialAutoDetect" checked>
+                    <label for="serialAutoDetect">自动检测 ESP32</label>
+                </div>
+                <button class="btn-primary" id="saveSerialSettings">保存串口设置</button>
+            </div>
+            
+            <div class="admin-section">
+                <h2>APRS 设置</h2>
+                <div class="form-row checkbox">
+                    <input type="checkbox" id="aprsEnabled">
+                    <label for="aprsEnabled">启用 APRS</label>
+                </div>
+                <div class="form-row">
+                    <label>呼号</label>
+                    <input type="text" id="aprsCallsign" placeholder="YOURCALL">
+                </div>
+                <div class="form-row">
+                    <label>SSID</label>
+                    <input type="number" id="aprsSsid" value="0" min="0" max="15">
+                </div>
+                <div class="form-row">
+                    <label>纬度</label>
+                    <input type="number" id="aprsLat" step="0.0001" placeholder="23.1234">
+                </div>
+                <div class="form-row">
+                    <label>经度</label>
+                    <input type="number" id="aprsLon" step="0.0001" placeholder="113.1234">
+                </div>
+                <div class="form-row">
+                    <label>信标间隔 (秒)</label>
+                    <input type="number" id="aprsInterval" value="600" min="60">
+                </div>
+                <button class="btn-primary" id="saveAprsSettings">保存 APRS 设置</button>
+            </div>
+            
+            <div class="admin-section">
+                <h2>客户端管理</h2>
+                <div class="client-list" id="clientList"></div>
+                <button class="btn-secondary" id="showAddClientBtn">添加客户端</button>
+                
+                <div class="modal" id="addClientModal">
+                    <div class="modal-content">
+                        <h3>添加客户端</h3>
+                        <div class="form-row">
+                            <label>客户端 ID</label>
+                            <input type="text" id="newClientId">
+                        </div>
+                        <div class="form-row">
+                            <label>名称</label>
+                            <input type="text" id="newClientName">
+                        </div>
+                        <div class="form-row">
+                            <label>类型</label>
+                            <select id="newClientType">
+                                <option value="1">ESP32 设备</option>
+                                <option value="2">普通用户</option>
+                                <option value="3">管理员</option>
+                            </select>
+                        </div>
+                        <div class="form-row checkbox">
+                            <input type="checkbox" id="newClientCanTx" checked>
+                            <label for="newClientCanTx">允许发射</label>
+                        </div>
+                        <div class="form-row checkbox">
+                            <input type="checkbox" id="newClientCanAprs">
+                            <label for="newClientCanAprs">允许 APRS</label>
+                        </div>
+                        <div class="modal-buttons">
+                            <button class="btn-primary" id="addClientBtn">添加</button>
+                            <button class="btn-secondary" id="cancelAddClientBtn">取消</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="admin-section">
+                <h2>系统</h2>
+                <div class="system-buttons">
+                    <button class="btn-secondary" id="backupConfigBtn">备份配置</button>
+                    <button class="btn-secondary" id="restoreConfigBtn">恢复配置</button>
+                    <button class="btn-danger" id="restartServerBtn">重启服务</button>
+                </div>
+                <div class="form-row checkbox">
+                    <input type="checkbox" id="debugMode">
+                    <label for="debugMode">调试模式</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
