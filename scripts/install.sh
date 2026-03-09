@@ -82,13 +82,14 @@ if [ -n "$GITHUB_REPO" ]; then
     REPO_URL_ORIGIN="https://github.com/${GITHUB_REPO}.git"
     REPO_URL_PROXY="https://mirror.ghproxy.com/https://github.com/${GITHUB_REPO}.git"
 
-    # 测试官方地址连通性，超时 5 秒
-    if curl -m 5 -Is "https://github.com" >/dev/null; then
+    # 测试官方地址连通性，要求不仅解析通，还要能下载，超时 5 秒
+    # 这里用 -w "%{http_code}" 验证真实返回状态
+    if [ "$(curl -x "" -s -m 5 -o /dev/null -w "%{http_code}" https://github.com)" = "200" ]; then
         REPO_URL="$REPO_URL_ORIGIN"
         echo "GitHub 官方网络通畅，使用原始地址: $REPO_URL"
     else
         REPO_URL="$REPO_URL_PROXY"
-        echo "GitHub 官方网络受限，自动切换到国内加速地址: $REPO_URL"
+        echo "GitHub 官方网络受限或不稳定，自动切换到国内加速地址: $REPO_URL"
     fi
 
     echo "使用远程仓库: $REPO_URL (分支: $GITHUB_REF)"
