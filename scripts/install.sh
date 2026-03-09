@@ -66,9 +66,15 @@ apt install -y direwolf
 
 # 安装 Python 依赖包
 echo "[7/8] 安装 Python 依赖包..."
-pip3 install --upgrade pip
-pip3 install 'websockets>=11.0'
-pip3 install 'pyserial>=3.5'
+
+# 尝试使用 apt 安装系统级包 (Debian 12+ 推荐)
+apt install -y python3-websockets python3-serial python3-fastapi python3-uvicorn python3-pydantic || true
+
+# 回退到 pip 安装 (如果 apt 没有找到包)
+echo "检查并用 pip 补充依赖..."
+# 加上 --break-system-packages 绕过 PEP 668，2>/dev/null 屏蔽旧系统不支持该参数的报错
+pip3 install 'websockets>=11.0' 'pyserial>=3.5' fastapi uvicorn pydantic --break-system-packages 2>/dev/null || \
+pip3 install 'websockets>=11.0' 'pyserial>=3.5' fastapi uvicorn pydantic
 
 # 拉取/更新项目代码（可选）
 echo ""
