@@ -80,7 +80,11 @@ fi
 if [ -n "$GITHUB_REPO" ]; then
     # 优先尝试原始 GitHub 链接，如果网络不佳可自动切换为国内 ghproxy 加速链接
     REPO_URL_ORIGIN="https://github.com/${GITHUB_REPO}.git"
-    REPO_URL_PROXY="https://mirror.ghproxy.com/https://github.com/${GITHUB_REPO}.git"
+    
+    # 获取可用代理，不直接写死。提供多个备用。
+    REPO_URL_PROXY_1="https://mirror.ghproxy.com/https://github.com/${GITHUB_REPO}.git"
+    REPO_URL_PROXY_2="https://ghp.ci/https://github.com/${GITHUB_REPO}.git"
+    REPO_URL_PROXY_3="https://gitclone.com/github.com/${GITHUB_REPO}.git"
 
     # 测试官方地址连通性，要求不仅解析通，还要能下载，超时 5 秒
     # 这里用 -w "%{http_code}" 验证真实返回状态
@@ -88,8 +92,18 @@ if [ -n "$GITHUB_REPO" ]; then
         REPO_URL="$REPO_URL_ORIGIN"
         echo "GitHub 官方网络通畅，使用原始地址: $REPO_URL"
     else
-        REPO_URL="$REPO_URL_PROXY"
-        echo "GitHub 官方网络受限或不稳定，自动切换到国内加速地址: $REPO_URL"
+        # 官方不通，测试镜像站 1
+        if [ "$(curl -x "" -s -m 5 -o /dev/null -w "%{http_code}" https://mirror.ghproxy.com)" = "200" ] || [ "$(curl -x "" -s -m 5 -o /dev/null -w "%{http_code}" https://mirror.ghproxy.com)" = "302" ]; then
+             REPO_URL="$REPO_URL_PROXY_1"
+             echo "GitHub 官方网络受限，自动切换到国内加速地址 1: $REPO_URL"
+        # 镜像 1 不通，测试镜像站 2
+        elif [ "$(curl -x "" -s -m 5 -o /dev/null -w "%{http_code}" https://ghp.ci)" = "200" ] || [ "$(curl -x "" -s -m 5 -o /dev/null -w "%{http_code}" https://ghp.ci)" = "301" ]; then
+             REPO_URL="$REPO_URL_PROXY_2"
+             echo "GitHub 官方网络受限，自动切换到国内加速地址 2: $REPO_URL"
+        else
+             REPO_URL="$REPO_URL_PROXY_3"
+             echo "未找到合适镜像，尝试最后的备用地址: $REPO_URL"
+        fi
     fi
 
     echo "使用远程仓库: $REPO_URL (分支: $GITHUB_REF)"
