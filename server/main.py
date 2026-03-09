@@ -421,12 +421,28 @@ class KTCopilotServer:
             await self.direwolf_integration.start_decoder()
         
         # 启动WebSocket服务器
-        logger.info(f"WebSocket 服务器启动: {self.ws_host}:{self.ws_port}")
+        ssl_context = None
+        ssl_conf = self.config.get('ssl', {})
+        if ssl_conf.get('enabled') and ssl_conf.get('cert_file') and ssl_conf.get('key_file'):
+            import ssl
+            import os
+            cert_file = ssl_conf['cert_file']
+            key_file = ssl_conf['key_file']
+            if os.path.exists(cert_file) and os.path.exists(key_file):
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
+                logger.info(f"WSS (SSL/TLS) 已启用, 证书: {cert_file}")
+            else:
+                logger.error("SSL/TLS 证书文件不存在，将回退到普通 WS 模式！")
+
+        protocol = "wss://" if ssl_context else "ws://"
+        logger.info(f"WebSocket 服务器启动: {protocol}{self.ws_host}:{self.ws_port}")
         
         async with websockets.serve(
             self.client_handler,
             self.ws_host,
             self.ws_port,
+            ssl=ssl_context,
             ping_interval=20,
             ping_timeout=20
         ):
