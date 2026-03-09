@@ -28,15 +28,33 @@ apt update
 
 # 安装基础工具
 echo "[2/8] 安装基础工具 (git, curl, vim)..."
-apt install -y git curl vim build-essential
+for pkg in git curl vim build-essential; do
+    if dpkg -l | grep -q "^ii  $pkg "; then
+        echo "$pkg 已安装，跳过"
+    else
+        apt install -y $pkg
+    fi
+done
 
 # 安装 Python 3 和 pip
 echo "[3/8] 安装 Python 3 和 pip..."
-apt install -y python3 python3-pip python3-dev
+for pkg in python3 python3-pip python3-dev; do
+    if dpkg -l | grep -q "^ii  $pkg "; then
+        echo "$pkg 已安装，跳过"
+    else
+        apt install -y $pkg
+    fi
+done
 
 # 安装 ALSA 音频库
 echo "[4/8] 安装 ALSA 音频库和工具..."
-apt install -y alsa-utils alsa-tools libasound2-dev
+for pkg in alsa-utils alsa-tools libasound2-dev; do
+    if dpkg -l | grep -q "^ii  $pkg "; then
+        echo "$pkg 已安装，跳过"
+    else
+        apt install -y $pkg
+    fi
+done
 
 # 安装 PortAudio (用于 PyAudio)
 echo "[5/8] 安装 PortAudio..."
