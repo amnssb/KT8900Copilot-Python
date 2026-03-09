@@ -130,6 +130,8 @@ fi
 
 if [ -f "$PROJECT_ROOT/server/requirements.txt" ]; then
     echo "安装项目依赖: $PROJECT_ROOT/server/requirements.txt"
+    # 用 --break-system-packages 绕过 PEP 668，如果失败再退回不用该参数（兼容老系统）
+    pip3 install -r "$PROJECT_ROOT/server/requirements.txt" --break-system-packages 2>/dev/null || \
     pip3 install -r "$PROJECT_ROOT/server/requirements.txt"
 fi
 
