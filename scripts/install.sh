@@ -78,9 +78,22 @@ if [ -z "$GITHUB_REPO" ]; then
 fi
 
 if [ -n "$GITHUB_REPO" ]; then
-    REPO_URL="https://github.com/${GITHUB_REPO}.git"
+    # 优先尝试原始 GitHub 链接，如果网络不佳可自动切换为国内 ghproxy 加速链接
+    REPO_URL_ORIGIN="https://github.com/${GITHUB_REPO}.git"
+    REPO_URL_PROXY="https://mirror.ghproxy.com/https://github.com/${GITHUB_REPO}.git"
+
+    # 测试官方地址连通性，超时 5 秒
+    if curl -m 5 -Is "https://github.com" >/dev/null; then
+        REPO_URL="$REPO_URL_ORIGIN"
+        echo "GitHub 官方网络通畅，使用原始地址: $REPO_URL"
+    else
+        REPO_URL="$REPO_URL_PROXY"
+        echo "GitHub 官方网络受限，自动切换到国内加速地址: $REPO_URL"
+    fi
+
     echo "使用远程仓库: $REPO_URL (分支: $GITHUB_REF)"
     if [ -d "$WORK_DIR/.git" ]; then
+        git -C "$WORK_DIR" remote set-url origin "$REPO_URL"
         git -C "$WORK_DIR" fetch origin "$GITHUB_REF"
         git -C "$WORK_DIR" checkout "$GITHUB_REF"
         git -C "$WORK_DIR" pull --ff-only origin "$GITHUB_REF"
